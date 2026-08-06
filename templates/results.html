@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CV Screening – Live Results</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="{{ url_for('static', filename='voice.js') }}"></script>
+    <style>
+        .role-card {
+            border: 1px solid #dee2e6;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            padding: 20px;
+            margin-bottom: 30px;
+            background: white;
+            transition: all 0.2s;
+        }
+        .role-card.active {
+            border-left: 6px solid #2a5298;
+            background: #f8fcff;
+        }
+        .role-card .role-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+        .role-card .role-header h3 {
+            margin: 0;
+            color: #1e3c72;
+            font-weight: 600;
+        }
+        .role-card .role-progress {
+            height: 6px;
+            border-radius: 4px;
+            background: #e9ecef;
+            margin: 10px 0 15px 0;
+            overflow: hidden;
+        }
+        .role-card .role-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #2a5298, #4a7fc7);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        .role-card .role-stats {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            font-size: 0.9rem;
+            margin-bottom: 15px;
+        }
+        .role-card .role-stats span {
+            background: #f1f3f5;
+            padding: 4px 12px;
+            border-radius: 20px;
+        }
+        .role-card .role-stats .accepted { background: #d4edda; color: #155724; }
+        .role-card .role-stats .doubtful { background: #fff3cd; color: #856404; }
+        .role-card .role-stats .rejected { background: #f8d7da; color: #721c24; }
+        .role-card .table-wrap {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .role-card .download-buttons {
+            margin-top: 15px;
+            display: none;
+        }
+        .role-card .download-buttons .btn {
+            margin-right: 8px;
+            margin-bottom: 5px;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .status-badge.active {
+            background: #2a5298;
+            color: white;
+            animation: pulse-badge 1.5s ease-in-out infinite;
+        }
+        .status-badge.done {
+            background: #28a745;
+            color: white;
+        }
+        @keyframes pulse-badge {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.05); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        .listening {
+            background-color: #dc3545 !important;
+            color: white !important;
+        }
+        .badge-accepted { background: #28a745; color: #fff; }
+        .badge-doubtful { background: #ffc107; color: #212529; }
+        .badge-rejected { background: #dc3545; color: #fff; }
+    </style>
+</head>
+<body>
+    <!-- VOICE HEADER (same) -->
+    <div class="d-flex justify-content-end align-items-center gap-3 p-2" style="background: #f8f9fa; border-bottom: 1px solid #dee2e6;">
+        <span><i class="fas fa-language"></i> Language:</span>
+        <select id="langSelect" class="form-select form-select-sm" style="width: auto;" onchange="setLanguage(this.value)">
+            <option value="en-US">English (US)</option>
+            <option value="en-GB">English (UK)</option>
+            <option value="es-ES">Español</option>
+            <option value="fr-FR">Français</option>
+            <option value="de-DE">Deutsch</option>
+            <option value="zh-CN">中文 (Chinese)</option>
+            <option value="hi-IN">हिन्दी (Hindi)</option>
+        </select>
+        <button id="micBtn" class="btn btn-outline-primary btn-sm" onclick="startVoiceCommand()">
+            <i class="fas fa-microphone"></i> Voice
+        </button>
+        <button id="stopBtn" class="btn btn-outline-danger btn-sm" style="display:none;" onclick="stopSpeaking()">
+            <i class="fas fa-stop-circle"></i> Stop
+        </button>
+    </div>
+
+    <div class="header text-center">
+        <div class="container">
+            <h1><i class="fas fa-robot"></i> AI CV Screening System</h1>
+            <p class="lead">Live screening results for {{ roles|length }} role(s).</p>
+        </div>
+    </div>
+
+    <div class="sub-header text-center py-3 bg-light border-bottom">
+        <div class="container">
+            <h2 class="fw-light mb-0" style="color: #1e3c72;">
+                <i class="fas fa-spinner fa-pulse me-2"></i> Screening in Progress
+                <span class="badge-live"><span class="dot"></span> Live</span>
+            </h2>
+            <div id="statusMessage" class="text-muted mt-1">
+                <i class="fas fa-hourglass-half"></i> Waiting for first results...
+            </div>
+        </div>
+    </div>
+
+    <div class="container mt-4">
+        <div class="progress mb-4" style="height: 28px;">
+            <div id="overallProgress" class="progress-bar" role="progressbar" style="width: 0%;">0%</div>
+        </div>
+        <div id="rolesContainer"></div>
+    </div>
+
+    <script>
+        // ----- Configuration -----
+        // rolesData from Flask; we add "Other" manually
+        const rolesData = {{ roles|tojson }};
+        let roleNames = rolesData.map(r => r.name);
+        // Add "Other" only if not already present (shouldn't be)
+        if (!roleNames.includes('Other')) {
+            roleNames.push('Other');
+        }
+
+        // ----- State -----
+        const roleState = {};
+        roleNames.forEach(name => {
+            roleState[name] = {
+                total: 0,
+                accepted: 0,
+                doubtful: 0,
+                rejected: 0,
+                done: false,
+                rows: []
+            };
+        });
+
+        let totalCvs = 0;
+        let processedCvs = 0;
+        let allRolesDone = false;
+
+        const container = document.getElementById('rolesContainer');
+        const overallBar = document.getElementById('overallProgress');
+        const statusMsg = document.getElementById('statusMessage');
+
+        // ----- Build role cards for all roles (including "Other") -----
+        function buildRoleCards() {
+            container.innerHTML = '';
+            roleNames.forEach((name, idx) => {
+                const card = document.createElement('div');
+                card.className = 'role-card active';
+                card.id = `role-card-${idx}`;
+                const isOther = (name === 'Other');
+                card.innerHTML = `
+                    <div class="role-header">
+                        <h3><i class="fas fa-briefcase"></i> ${name} ${isOther ? '<span class="badge bg-secondary">Other</span>' : ''}</h3>
+                        <div>
+                            <button class="btn btn-sm btn-outline-primary" onclick="speakStats('${name}')">
+                                <i class="fas fa-chart-pie"></i> Stats
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="speakTable('${name}')">
+                                <i class="fas fa-table"></i> Table
+                            </button>
+                            <span class="status-badge active" id="status-${idx}">Processing</span>
+                        </div>
+                    </div>
+                    <div class="role-stats">
+                        <span><i class="fas fa-file"></i> Total: <strong id="total-${idx}">0</strong></span>
+                        <span class="accepted"><i class="fas fa-check-circle"></i> Accepted: <strong id="acc-${idx}">0</strong></span>
+                        <span class="doubtful"><i class="fas fa-question-circle"></i> Doubtful: <strong id="doubt-${idx}">0</strong></span>
+                        <span class="rejected"><i class="fas fa-times-circle"></i> Rejected: <strong id="rej-${idx}">0</strong></span>
+                    </div>
+                    <div class="role-progress">
+                        <div class="role-progress-bar" id="progress-${idx}" style="width:0%;"></div>
+                    </div>
+                    <div class="table-wrap">
+                        <table class="table table-hover table-striped table-sm">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Filename</th>
+                                    <th>Decision</th>
+                                    <th>Score</th>
+                                    <th>Reason</th>
+                                    <th>Degree</th>
+                                    <th>Qualification</th>
+                                    <th>Experience</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-body-${idx}"></tbody>
+                        </table>
+                    </div>
+                    <div class="download-buttons" id="download-${idx}">
+                        <hr>
+                        <small><i class="fas fa-download"></i> Download results for this role:</small><br>
+                        <a href="#" class="btn btn-success btn-sm" id="dl-accepted-${idx}">✅ Accepted</a>
+                        <a href="#" class="btn btn-warning btn-sm" id="dl-doubtful-${idx}">🔄 Doubtful</a>
+                        <a href="#" class="btn btn-danger btn-sm" id="dl-rejected-${idx}">❌ Rejected</a>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+        buildRoleCards();
+
+        // ----- Update UI for a role -----
+        function updateRoleUI(idx, roleName) {
+            const s = roleState[roleName];
+            document.getElementById(`total-${idx}`).textContent = s.total;
+            document.getElementById(`acc-${idx}`).textContent = s.accepted;
+            document.getElementById(`doubt-${idx}`).textContent = s.doubtful;
+            document.getElementById(`rej-${idx}`).textContent = s.rejected;
+            const pct = s.total > 0 ? Math.round((s.accepted + s.doubtful + s.rejected) / s.total * 100) : 0;
+            document.getElementById(`progress-${idx}`).style.width = pct + '%';
+            if (s.done) {
+                const badge = document.getElementById(`status-${idx}`);
+                badge.className = 'status-badge done';
+                badge.textContent = 'Done ✓';
+                document.getElementById(`role-card-${idx}`).classList.remove('active');
+                const downloadDiv = document.getElementById(`download-${idx}`);
+                downloadDiv.style.display = 'block';
+                const roleEncoded = encodeURIComponent(roleName);
+                document.getElementById(`dl-accepted-${idx}`).href = `/download/${roleEncoded}/accepted`;
+                document.getElementById(`dl-doubtful-${idx}`).href = `/download/${roleEncoded}/doubtful`;
+                document.getElementById(`dl-rejected-${idx}`).href = `/download/${roleEncoded}/rejected`;
+            } else {
+                document.getElementById(`role-card-${idx}`).classList.add('active');
+            }
+        }
+
+        // ----- Voice helpers -----
+        async function speakStats(roleName) {
+            const s = roleState[roleName];
+            if (!s) return;
+            const text = `Role ${roleName}: Total ${s.total}, Accepted ${s.accepted}, Doubtful ${s.doubtful}, Rejected ${s.rejected}.`;
+            await speakText(text);
+        }
+
+        // ----- MODIFIED: speaks ALL rows, no limit -----
+        async function speakTable(roleName) {
+            const idx = roleNames.indexOf(roleName);
+            const tbody = document.getElementById(`table-body-${idx}`);
+            if (!tbody || tbody.children.length === 0) {
+                await speakText(`No results yet for ${roleName}.`);
+                return;
+            }
+            let text = `Results for ${roleName}: `;
+            const rows = tbody.querySelectorAll('tr');
+            for (const row of rows) {
+                const cells = row.querySelectorAll('td');
+                if (cells.length >= 5) {
+                    const file = cells[1].textContent;
+                    const decision = cells[2].textContent.trim();
+                    const score = cells[3].textContent;
+                    const reason = cells[4].textContent;
+                    text += `${file}, ${decision}, score ${score}, reason: ${reason}. `;
+                }
+            }
+            await speakText(text);
+        }
+
+        // ----- Voice command handler for results page -----
+        document.addEventListener('DOMContentLoaded', function() {
+            setVoiceCommandHandler(async function(command, original) {
+                const lower = command.toLowerCase();
+                let matchedRole = null;
+                for (const name of roleNames) {
+                    if (lower.includes(name.toLowerCase())) {
+                        matchedRole = name;
+                        break;
+                    }
+                }
+                if (lower.includes('stats') || lower.includes('summary')) {
+                    if (matchedRole) await speakStats(matchedRole);
+                    else await speakText('Please specify a role, e.g., "stats for Medical".');
+                } else if (lower.includes('table') || lower.includes('results') || lower.includes('read')) {
+                    if (matchedRole) await speakTable(matchedRole);
+                    else await speakText('Please specify a role, e.g., "table for Technical".');
+                } else if (lower.includes('download') && lower.includes('accepted')) {
+                    if (matchedRole) {
+                        const idx = roleNames.indexOf(matchedRole);
+                        const link = document.getElementById(`dl-accepted-${idx}`);
+                        if (link) link.click();
+                        await speakText(`Downloading accepted CVs for ${matchedRole}.`);
+                    } else {
+                        await speakText('Please specify a role, e.g., "download accepted for Medical".');
+                    }
+                } else if (lower.includes('download') && lower.includes('doubtful')) {
+                    if (matchedRole) {
+                        const idx = roleNames.indexOf(matchedRole);
+                        const link = document.getElementById(`dl-doubtful-${idx}`);
+                        if (link) link.click();
+                        await speakText(`Downloading doubtful CVs for ${matchedRole}.`);
+                    } else {
+                        await speakText('Please specify a role.');
+                    }
+                } else if (lower.includes('download') && lower.includes('rejected')) {
+                    if (matchedRole) {
+                        const idx = roleNames.indexOf(matchedRole);
+                        const link = document.getElementById(`dl-rejected-${idx}`);
+                        if (link) link.click();
+                        await speakText(`Downloading rejected CVs for ${matchedRole}.`);
+                    } else {
+                        await speakText('Please specify a role.');
+                    }
+                } else {
+                    await speakText('Commands: "stats for [role]", "table for [role]", "download accepted for [role]"');
+                }
+            });
+        });
+
+        // ----- EventSource -----
+        const eventSource = new EventSource('/stream');
+
+        eventSource.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            if (data.type === 'result') {
+                const r = data.data;
+                const role = data.role;
+                const progress = data.progress;
+
+                // Overall progress
+                totalCvs = progress.total;
+                processedCvs = progress.current;
+                const overallPct = Math.round((processedCvs / totalCvs) * 100);
+                overallBar.style.width = overallPct + '%';
+                overallBar.textContent = overallPct + '%';
+                overallBar.setAttribute('aria-valuenow', overallPct);
+
+                statusMsg.innerHTML = `<i class="fas fa-spinner fa-pulse"></i> Processing CV ${progress.cv}`;
+
+                const idx = roleNames.indexOf(role);
+                if (idx === -1) {
+                    console.warn('Unknown role:', role);
+                    return;
+                }
+
+                const s = roleState[role];
+                s.total += 1;
+                if (r.decision === 'Accepted') s.accepted += 1;
+                else if (r.decision === 'Doubtful') s.doubtful += 1;
+                else s.rejected += 1;
+
+                const badgeClass = r.decision === 'Accepted' ? 'badge-accepted' :
+                                  (r.decision === 'Doubtful' ? 'badge-doubtful' : 'badge-rejected');
+                const row = `<tr>
+                    <td>${s.total}</td>
+                    <td>${r.filename}</td>
+                    <td><span class="badge ${badgeClass}">${r.decision}</span></td>
+                    <td>${r.certainty_score}%</td>
+                    <td>${r.reason}</td>
+                    <td>${r.extracted_degree}</td>
+                    <td>${r.extracted_qualification}</td>
+                    <td>${r.extracted_experience.toFixed(1)}</td>
+                </tr>`;
+                document.getElementById(`table-body-${idx}`).insertAdjacentHTML('beforeend', row);
+
+                updateRoleUI(idx, role);
+
+            } else if (data.type === 'summary') {
+                const summary = data.data;
+                for (const [role, stats] of Object.entries(summary)) {
+                    const idx = roleNames.indexOf(role);
+                    if (idx === -1) continue;
+                    const s = roleState[role];
+                    s.total = stats.total;
+                    s.accepted = stats.accepted;
+                    s.doubtful = stats.doubtful;
+                    s.rejected = stats.rejected;
+                    s.done = true;
+                    updateRoleUI(idx, role);
+                }
+
+                allRolesDone = true;
+                statusMsg.innerHTML = `<i class="fas fa-check-circle" style="color:#28a745;"></i> Screening completed for all roles.`;
+                overallBar.style.width = '100%';
+                overallBar.textContent = '100%';
+                overallBar.classList.add('bg-success');
+
+                eventSource.close();
+            }
+        };
+
+        eventSource.onerror = function(err) {
+            console.error('EventSource error:', err);
+            if (!allRolesDone) {
+                statusMsg.innerHTML = `<i class="fas fa-exclamation-triangle" style="color:#dc3545;"></i> Connection lost. Please refresh the page.`;
+            }
+            eventSource.close();
+        };
+    </script>
+</body>
+</html>

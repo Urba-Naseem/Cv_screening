@@ -1,0 +1,151 @@
+body {
+    background: #f4f7fc;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.header {
+    background: linear-gradient(135deg, #1e3c72, #2a5298);
+    color: white;
+    padding: 20px 0;
+    margin-bottom: 30px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+.header h1 {
+    font-weight: 300;
+    letter-spacing: 1px;
+}
+.header i {
+    margin-right: 10px;
+}
+.sub-header {
+    background: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+}
+.sub-header h2 {
+    font-weight: 300;
+    color: #1e3c72;
+}
+.card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.05);
+    margin-bottom: 25px;
+}
+.card-title {
+    font-weight: 600;
+    color: #1e3c72;
+}
+
+.btn-primary {
+    background: #2a5298;
+    border: none;
+}
+.btn-primary:hover {
+    background: #1e3c72;
+}
+
+.badge-accepted {
+    background: #28a745;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 20px;
+}
+.badge-rejected {
+    background: #dc3545;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 20px;
+}
+.badge-doubtful {
+    background: #ffc107;
+    color: #000;
+    padding: 6px 12px;
+    border-radius: 20px;
+}
+
+.result-table {
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.summary-box {
+    background: white;
+    border-radius: 10px;
+    padding: 15px;
+    text-align: center;
+    border-left: 4px solid #2a5298;
+}
+.summary-box .number {
+    font-size: 2rem;
+    font-weight: 600;
+}
+
+.file-upload-area {
+    border: 2px dashed #ced4da;
+    border-radius: 10px;
+    padding: 30px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+.file-upload-area:hover {
+    border-color: #2a5298;
+    background: #f0f5ff;
+}
+.file-upload-area i {
+    font-size: 3rem;
+    color: #2a5298;
+}
+/* Live badge */
+.badge-live {
+    background: #ff4757;
+    color: white;
+    font-size: 0.75rem;
+    padding: 6px 14px;
+    border-radius: 30px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    animation: pulse-badge 1.5s ease-in-out infinite;
+    vertical-align: middle;
+    margin-left: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+    box-shadow: 0 0 20px rgba(255,71,87,0.4);
+}
+.badge-live .dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    background: white;
+    border-radius: 50%;
+    animation: blink-dot 1s step-start infinite;
+}
+@keyframes blink-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.2; }
+}
+@keyframes pulse-badge {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.03); }
+    100% { transform: scale(1); }
+}
+
+/* Progress bar */
+.progress {
+    height: 25px;
+    border-radius: 20px;
+    background: #e9ecef;
+    overflow: hidden;
+}
+.progress-bar {
+    background: linear-gradient(90deg, #2a5298, #4a7fc7);
+    font-weight: 500;
+    transition: width 0.4s ease;
+}
+
+/* Download buttons spacing */
+#downloadSection .btn {
+    margin-right: 8px;
+}
